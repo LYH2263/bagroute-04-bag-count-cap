@@ -7,7 +7,12 @@ class RouteOut(BaseModel):
     name: str
     max_weight_kg: float
     max_volume_l: float
+    max_bags: int | None
     model_config = {"from_attributes": True}
+
+
+class RouteUpdate(BaseModel):
+    max_bags: int | None = None  # null = 不限袋数
 
 
 class StopOut(BaseModel):

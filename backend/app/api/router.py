@@ -10,6 +10,7 @@ from app.schemas.schemas import (
     PackRequest,
     RejectOut,
     RouteOut,
+    RouteUpdate,
     StopOut,
     WeightOut,
 )
@@ -26,6 +27,19 @@ def health():
 @api_router.get("/routes", response_model=list[RouteOut])
 def routes(db: Session = Depends(get_db)):
     return db.scalars(select(DeliveryRoute).order_by(DeliveryRoute.id)).all()
+
+
+@api_router.patch("/routes/{route_id}", response_model=RouteOut)
+def update_route(route_id: int, body: RouteUpdate, db: Session = Depends(get_db)):
+    route = db.get(DeliveryRoute, route_id)
+    if not route:
+        raise HTTPException(404, "路线不存在")
+    if body.max_bags is not None and body.max_bags < 1:
+        raise HTTPException(422, "袋数上限需为正整数，或留空表示不限")
+    route.max_bags = body.max_bags
+    db.commit()
+    db.refresh(route)
+    return route
 
 
 @api_router.get("/stops", response_model=list[StopOut])
@@ -58,7 +72,7 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
     items = [
         StopItem(s.id, s.seq, s.weight_kg, s.volume_l, s.name) for s in stops
     ]
-    result = pack_route(items, route.max_weight_kg, route.max_volume_l)
+    result = pack_route(items, route.max_weight_kg, route.max_volume_l, max_bags=route.max_bags)
     out_bags: list[PackBag] = []
     for bag in result.bags:
         row = PackBag(

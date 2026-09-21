@@ -1,4 +1,10 @@
-"""Route-order bag packing with weight + volume caps; reject when exceed."""
+"""Route-order bag packing with weight + volume caps and a per-route bag-count cap.
+
+Stops are packed in seq order; a new bag is opened when the current one cannot
+fit the next stop under the weight/volume caps. When opening another bag would
+exceed ``max_bags``, the current stop and every subsequent unpacked stop are
+rejected with a "bag count exhausted" reason — already packed bags stay as-is.
+"""
 
 from __future__ import annotations
 
@@ -35,17 +41,28 @@ def can_fit(bag: Bag, item: StopItem, max_weight: float, max_volume: float) -> b
     )
 
 
+def bag_exhausted_reason(max_bags: int) -> str:
+    return f"袋数用尽：路线最多 {max_bags} 袋"
+
+
 def pack_route(
     stops: list[StopItem],
     max_weight: float,
     max_volume: float,
+    max_bags: int | None = None,
 ) -> PackResult:
     ordered = sorted(stops, key=lambda s: s.seq)
     bags: list[Bag] = []
     rejects: list[tuple[StopItem, str]] = []
     current: Bag | None = None
+    exhausted = False
 
     for item in ordered:
+        if exhausted:
+            # bag cap already hit: every remaining stop is rejected as-is
+            rejects.append((item, bag_exhausted_reason(max_bags)))
+            continue
+
         if item.weight_kg > max_weight or item.volume_l > max_volume:
             reason = []
             if item.weight_kg > max_weight:
@@ -56,6 +73,11 @@ def pack_route(
             continue
 
         if current is None or not can_fit(current, item, max_weight, max_volume):
+            if max_bags is not None and len(bags) >= max_bags:
+                # one more bag would exceed the route cap: truncate here
+                exhausted = True
+                rejects.append((item, bag_exhausted_reason(max_bags)))
+                continue
             current = Bag(bag_index=len(bags) + 1)
             bags.append(current)
 

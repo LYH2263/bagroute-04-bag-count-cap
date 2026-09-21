@@ -12,6 +12,7 @@ class DeliveryRoute(Base):
     name: Mapped[str] = mapped_column(String(80), unique=True)
     max_weight_kg: Mapped[float] = mapped_column(Float, default=8.0)
     max_volume_l: Mapped[float] = mapped_column(Float, default=20.0)
+    max_bags: Mapped[int | None] = mapped_column(Integer, nullable=True)  # None = 不限
     stops: Mapped[list["SubscriberStop"]] = relationship(back_populates="route")
 
 
