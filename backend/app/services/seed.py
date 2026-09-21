@@ -7,8 +7,10 @@ from app.models.models import DeliveryRoute, SubscriberStop
 def seed_if_empty(db: Session) -> None:
     if db.scalar(select(DeliveryRoute.id).limit(1)):
         return
-    r1 = DeliveryRoute(name="城东晨线", max_weight_kg=8.0, max_volume_l=18.0)
-    r2 = DeliveryRoute(name="园区午线", max_weight_kg=6.0, max_volume_l=14.0)
+    # 城东晨线：袋数上限 2 袋，会在中途因袋数用尽截断后序站点；
+    # 同时保留 seq=4 的超重拒收，用于区分两类原因。
+    r1 = DeliveryRoute(name="城东晨线", max_weight_kg=8.0, max_volume_l=18.0, max_bags=2)
+    r2 = DeliveryRoute(name="园区午线", max_weight_kg=6.0, max_volume_l=14.0, max_bags=0)
     db.add_all([r1, r2])
     db.flush()
     db.add_all(
@@ -18,6 +20,9 @@ def seed_if_empty(db: Session) -> None:
             SubscriberStop(route_id=r1.id, seq=3, name="地铁口快递柜", weight_kg=1.8, volume_l=3.0),
             SubscriberStop(route_id=r1.id, seq=4, name="超大件样例", weight_kg=9.5, volume_l=6.0),
             SubscriberStop(route_id=r1.id, seq=5, name="咖啡店后门", weight_kg=2.0, volume_l=4.5),
+            SubscriberStop(route_id=r1.id, seq=6, name="社区医院前台", weight_kg=5.0, volume_l=8.0),
+            SubscriberStop(route_id=r1.id, seq=7, name="书报亭旁自提", weight_kg=3.0, volume_l=5.0),
+            SubscriberStop(route_id=r1.id, seq=8, name="南门外便利店", weight_kg=2.5, volume_l=4.0),
             SubscriberStop(route_id=r2.id, seq=1, name="A 座前台", weight_kg=1.5, volume_l=3.0),
             SubscriberStop(route_id=r2.id, seq=2, name="B 座茶水间", weight_kg=2.0, volume_l=4.0),
             SubscriberStop(route_id=r2.id, seq=3, name="地下车库岗亭", weight_kg=2.8, volume_l=5.0),

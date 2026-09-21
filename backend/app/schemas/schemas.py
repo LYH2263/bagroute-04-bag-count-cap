@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class RouteOut(BaseModel):
@@ -7,7 +7,19 @@ class RouteOut(BaseModel):
     name: str
     max_weight_kg: float
     max_volume_l: float
+    max_bags: int
     model_config = {"from_attributes": True}
+
+
+class RouteUpdate(BaseModel):
+    max_bags: int | None = None
+
+    @field_validator("max_bags")
+    @classmethod
+    def _non_negative(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError("袋数上限不能为负（0 表示不限）")
+        return v
 
 
 class StopOut(BaseModel):

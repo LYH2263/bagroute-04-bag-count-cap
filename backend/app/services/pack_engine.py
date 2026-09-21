@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# 拒收原因分档关键字：袋数用尽与超重/超体积必须可区分
+REASON_BAG_CAP = "袋数用尽"
+
 
 @dataclass(frozen=True)
 class StopItem:
@@ -35,15 +38,22 @@ def can_fit(bag: Bag, item: StopItem, max_weight: float, max_volume: float) -> b
     )
 
 
+def bag_cap_reason(max_bags: int) -> str:
+    return f"{REASON_BAG_CAP}：路线袋数上限 {max_bags} 袋，已全部装满"
+
+
 def pack_route(
     stops: list[StopItem],
     max_weight: float,
     max_volume: float,
+    max_bags: int = 0,
 ) -> PackResult:
     ordered = sorted(stops, key=lambda s: s.seq)
     bags: list[Bag] = []
     rejects: list[tuple[StopItem, str]] = []
     current: Bag | None = None
+    # 一旦需要再开一袋却会超过上限，本路线后续站点全部按袋数用尽拒收
+    bags_exhausted = False
 
     for item in ordered:
         if item.weight_kg > max_weight or item.volume_l > max_volume:
@@ -55,14 +65,19 @@ def pack_route(
             rejects.append((item, "；".join(reason)))
             continue
 
-        if current is None or not can_fit(current, item, max_weight, max_volume):
+        if bags_exhausted:
+            rejects.append((item, bag_cap_reason(max_bags)))
+            continue
+
+        needs_new_bag = current is None or not can_fit(current, item, max_weight, max_volume)
+        if needs_new_bag and max_bags > 0 and len(bags) >= max_bags:
+            bags_exhausted = True
+            rejects.append((item, bag_cap_reason(max_bags)))
+            continue
+
+        if needs_new_bag:
             current = Bag(bag_index=len(bags) + 1)
             bags.append(current)
-
-        if not can_fit(current, item, max_weight, max_volume):
-            # should not happen after single-item check, but keep safe
-            rejects.append((item, "无法装入新袋"))
-            continue
 
         current.items.append(item)
         current.weight_kg += item.weight_kg
